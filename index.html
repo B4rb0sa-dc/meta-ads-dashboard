@@ -145,6 +145,111 @@
       color: #9ca3af;
     }
 
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      margin-bottom: 30px;
+    }
+
+    .chart-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      min-height: 360px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .chart-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #111827;
+      margin: 0 0 4px;
+    }
+
+    .chart-subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 0;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 10px 0 4px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .donut-layout {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 20px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .donut-legend-row {
+      display: grid;
+      grid-template-columns: 12px 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .donut-name {
+      color: #374151;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .donut-value {
+      color: #111827;
+      font-weight: bold;
+    }
+
+    .empty-chart {
+      padding: 40px 10px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -194,7 +299,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1080px;
+      min-width: 1120px;
     }
 
     th, td {
@@ -216,6 +321,26 @@
 
     td {
       color: #111827;
+    }
+
+    .sort-button {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: bold;
+      text-align: left;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sort-indicator {
+      color: #1877f2;
+      font-size: 12px;
     }
 
     .dimension-name {
@@ -246,9 +371,28 @@
       color: #6b7280;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1000px) {
       .cards {
         grid-template-columns: repeat(2, 1fr);
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .donut-layout {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      .donut-legend {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .container {
+        padding: 20px 12px 40px;
       }
 
       .header,
@@ -257,28 +401,123 @@
         align-items: flex-start;
       }
 
-      .filters {
-        grid-template-columns: 1fr 1fr;
+      .refresh-button {
+        width: 100%;
       }
-    }
 
-    @media (max-width: 600px) {
-      .cards,
       .filters {
         grid-template-columns: 1fr;
+        padding: 16px;
       }
 
-      .dimension-buttons {
-        width: 100%;
-        flex-direction: column;
+      .status-card {
+        display: block;
       }
 
-      .title-area h1 {
-        font-size: 26px;
+      .status-card > div {
+        margin-bottom: 8px;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .card {
+        padding: 18px;
       }
 
       .card .value {
         font-size: 24px;
+      }
+
+      .chart-card {
+        padding: 16px;
+        min-height: auto;
+      }
+
+      .chart-header {
+        flex-direction: column;
+      }
+
+      .dimension-buttons {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .dimension-button {
+        width: 100%;
+      }
+
+      .table-wrapper {
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+        overflow-x: visible;
+      }
+
+      table,
+      thead,
+      tbody,
+      th,
+      td,
+      tr {
+        display: block;
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      tr {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        padding: 12px;
+      }
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        border-bottom: 1px solid #eef0f4;
+        padding: 12px 4px;
+        font-size: 13px;
+        text-align: right;
+      }
+
+      td:last-child {
+        border-bottom: none;
+      }
+
+      td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #4b5563;
+        text-align: left;
+        min-width: 110px;
+      }
+
+      td:first-child {
+        display: block;
+        text-align: left;
+      }
+
+      td:first-child::before {
+        display: block;
+        margin-bottom: 8px;
       }
     }
   </style>
@@ -304,10 +543,23 @@
 
   <script>
     let dashboardData = null;
-    let currentPeriod = "all";
+    let currentPeriod = "last_7d";
     let currentCustomStart = "";
     let currentCustomEnd = "";
     let currentDimension = "campaign";
+    let sortState = {
+      key: "spend",
+      direction: "desc"
+    };
+
+    const CHART_COLORS = [
+      "#1877f2",
+      "#10b981",
+      "#f97316",
+      "#f59e0b",
+      "#8b5cf6",
+      "#ef4444"
+    ];
 
     function toNumber(value) {
       if (value === null || value === undefined || value === "") return 0;
@@ -354,6 +606,10 @@
         style: "currency",
         currency: "BRL"
       });
+    }
+
+    function formatShortMoney(value) {
+      return `R$${Math.round(toNumber(value)).toLocaleString("pt-BR")}`;
     }
 
     function formatNumber(value) {
@@ -453,8 +709,36 @@
       return getField(row, "date_start", "Date Start", "dateStart");
     }
 
+    function getDateKeyFromValue(value) {
+      if (!value) return "";
+
+      const match = String(value).match(/\d{4}-\d{2}-\d{2}/);
+
+      if (match) {
+        return match[0];
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "";
+      }
+
+      return dateKey(date);
+    }
+
     function parseDate(value) {
       if (!value) return null;
+
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return new Date(`${value}T00:00:00`);
+      }
+
+      const match = String(value).match(/\d{4}-\d{2}-\d{2}/);
+
+      if (match) {
+        return new Date(`${match[0]}T00:00:00`);
+      }
 
       const date = new Date(value);
 
@@ -475,12 +759,23 @@
       return `${year}-${month}-${day}`;
     }
 
-    function formatDateBR(dateString) {
-      const date = parseDate(dateString);
+    function formatDateBR(value) {
+      const date = parseDate(value);
 
       if (!date) return "Data não informada";
 
       return date.toLocaleDateString("pt-BR");
+    }
+
+    function formatDateShort(value) {
+      const date = parseDate(value);
+
+      if (!date) return "";
+
+      return date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit"
+      });
     }
 
     function normalizeRows(data) {
@@ -504,12 +799,12 @@
     }
 
     function getAvailableDateRange(rows) {
-      const dates = rows
-        .map(row => parseDate(getRowDate(row)))
+      const keys = rows
+        .map(row => getDateKeyFromValue(getRowDate(row)))
         .filter(Boolean)
-        .sort((a, b) => a - b);
+        .sort();
 
-      if (!dates.length) {
+      if (!keys.length) {
         return {
           minDate: null,
           maxDate: null
@@ -517,8 +812,8 @@
       }
 
       return {
-        minDate: dates[0],
-        maxDate: dates[dates.length - 1]
+        minDate: parseDate(keys[0]),
+        maxDate: parseDate(keys[keys.length - 1])
       };
     }
 
@@ -557,10 +852,9 @@
       const endKey = dateKey(end);
 
       return rows.filter(row => {
-        const rowDate = parseDate(getRowDate(row));
-        if (!rowDate) return false;
+        const rowKey = getDateKeyFromValue(getRowDate(row));
 
-        const rowKey = dateKey(rowDate);
+        if (!rowKey) return false;
 
         return rowKey >= startKey && rowKey <= endKey;
       });
@@ -652,31 +946,74 @@
         item.impressions += toNumber(getField(row, "impressions", "Impressions"));
         item.reach += toNumber(getField(row, "reach", "Reach"));
 
-        const rowDate = getRowDate(row);
+        const rowKey = getDateKeyFromValue(getRowDate(row));
 
-        if (rowDate) {
-          const parsedDate = parseDate(rowDate);
-
-          if (parsedDate) {
-            item.days.add(dateKey(parsedDate));
-          }
+        if (rowKey) {
+          item.days.add(rowKey);
         }
       });
 
-      return Array.from(groups.values())
-        .map(item => ({
-          ...item,
-          cpl: item.messages > 0 ? item.spend / item.messages : 0,
-          ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
-          cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
-          frequency: item.reach > 0 ? item.impressions / item.reach : 0,
-          daysCount: item.days.size
-        }))
-        .sort((a, b) => b.spend - a.spend);
+      return Array.from(groups.values()).map(item => ({
+        ...item,
+        cpl: item.messages > 0 ? item.spend / item.messages : 0,
+        ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
+        cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
+        frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+        daysCount: item.days.size
+      }));
+    }
+
+    function sortDimensionRows(rows) {
+      const { key, direction } = sortState;
+
+      return [...rows].sort((a, b) => {
+        let valueA = a[key];
+        let valueB = b[key];
+
+        if (key === "name") {
+          valueA = String(valueA || "").toLowerCase();
+          valueB = String(valueB || "").toLowerCase();
+
+          if (valueA < valueB) return direction === "asc" ? -1 : 1;
+          if (valueA > valueB) return direction === "asc" ? 1 : -1;
+          return 0;
+        }
+
+        valueA = toNumber(valueA);
+        valueB = toNumber(valueB);
+
+        return direction === "asc" ? valueA - valueB : valueB - valueA;
+      });
+    }
+
+    function changeSort(key) {
+      if (sortState.key === key) {
+        sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+      } else {
+        sortState.key = key;
+        sortState.direction = key === "name" ? "asc" : "desc";
+      }
+
+      renderDashboard(currentPeriod, currentCustomStart, currentCustomEnd);
+    }
+
+    function sortIndicator(key) {
+      if (sortState.key !== key) return "";
+
+      return sortState.direction === "asc" ? "↑" : "↓";
+    }
+
+    function buildSortableHeader(label, key) {
+      return `
+        <button class="sort-button" onclick="changeSort('${key}')">
+          ${label}
+          <span class="sort-indicator">${sortIndicator(key)}</span>
+        </button>
+      `;
     }
 
     function buildDimensionTable(rows, dimension) {
-      const groupedRows = groupRowsByDimension(rows, dimension);
+      const groupedRows = sortDimensionRows(groupRowsByDimension(rows, dimension));
       const config = getDimensionConfig(dimension);
 
       if (!groupedRows.length) {
@@ -689,21 +1026,316 @@
 
       return groupedRows.map(item => `
         <tr>
-          <td>
+          <td data-label="Dimensão">
             <div class="dimension-name">${safeText(item.name, `${config.label} sem nome`)}</div>
             <div class="dimension-id">ID: ${safeText(item.id, "não informado")}</div>
           </td>
-          <td>${formatNumber(item.messages)}</td>
-          <td>${formatMoney(item.cpl)}</td>
-          <td>${formatNumber(item.clicks)}</td>
-          <td>${formatPercent(item.ctr)}</td>
-          <td>${formatMoney(item.spend)}</td>
-          <td>${formatNumber(item.impressions)}</td>
-          <td>${formatNumber(item.reach)}</td>
-          <td>${formatMoney(item.cpm)}</td>
-          <td>${item.daysCount}</td>
+          <td data-label="Mensagens">${formatNumber(item.messages)}</td>
+          <td data-label="Custo/mensagem">${formatMoney(item.cpl)}</td>
+          <td data-label="Cliques">${formatNumber(item.clicks)}</td>
+          <td data-label="CTR">${formatPercent(item.ctr)}</td>
+          <td data-label="Investimento">${formatMoney(item.spend)}</td>
+          <td data-label="Impressões">${formatNumber(item.impressions)}</td>
+          <td data-label="Alcance">${formatNumber(item.reach)}</td>
+          <td data-label="CPM">${formatMoney(item.cpm)}</td>
+          <td data-label="Dias">${item.daysCount}</td>
         </tr>
       `).join("");
+    }
+
+    function getDateKeysBetween(start, end) {
+      if (!start || !end) return [];
+
+      const keys = [];
+      const cursor = new Date(start);
+
+      while (cursor <= end) {
+        keys.push(dateKey(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      return keys;
+    }
+
+    function getChartRange(start, end) {
+      if (!start || !end) {
+        return {
+          chartStart: null,
+          chartEnd: null
+        };
+      }
+
+      const chartEnd = new Date(end);
+      const chartStart = new Date(end);
+      chartStart.setDate(chartStart.getDate() - 13);
+
+      if (start > chartStart) {
+        return {
+          chartStart: start,
+          chartEnd
+        };
+      }
+
+      return {
+        chartStart,
+        chartEnd
+      };
+    }
+
+    function aggregateDailyRows(rows, start, end) {
+      const keys = getDateKeysBetween(start, end);
+      const map = new Map();
+
+      keys.forEach(key => {
+        map.set(key, {
+          date: key,
+          spend: 0,
+          messages: 0
+        });
+      });
+
+      rows.forEach(row => {
+        const key = getDateKeyFromValue(getRowDate(row));
+
+        if (!map.has(key)) return;
+
+        const item = map.get(key);
+
+        item.spend += toNumber(getField(row, "spend", "Spend"));
+        item.messages += getMessages(row);
+      });
+
+      return Array.from(map.values());
+    }
+
+    function buildLineChart(rows, start, end) {
+      const { chartStart, chartEnd } = getChartRange(start, end);
+
+      if (!chartStart || !chartEnd) {
+        return `<div class="empty-chart">Não há dados suficientes para o gráfico.</div>`;
+      }
+
+      const dailyData = aggregateDailyRows(rows, chartStart, chartEnd);
+
+      if (!dailyData.length) {
+        return `<div class="empty-chart">Não há dados suficientes para o gráfico.</div>`;
+      }
+
+      const width = 720;
+      const height = 320;
+      const padding = {
+        top: 24,
+        right: 70,
+        bottom: 48,
+        left: 70
+      };
+
+      const innerWidth = width - padding.left - padding.right;
+      const innerHeight = height - padding.top - padding.bottom;
+
+      const maxSpend = Math.max(...dailyData.map(item => item.spend), 1);
+      const maxMessages = Math.max(...dailyData.map(item => item.messages), 1);
+
+      const x = index => {
+        if (dailyData.length === 1) return padding.left + innerWidth / 2;
+
+        return padding.left + (index / (dailyData.length - 1)) * innerWidth;
+      };
+
+      const ySpend = value => {
+        return padding.top + innerHeight - (value / maxSpend) * innerHeight;
+      };
+
+      const yMessages = value => {
+        return padding.top + innerHeight - (value / maxMessages) * innerHeight;
+      };
+
+      const spendPoints = dailyData
+        .map((item, index) => `${x(index)},${ySpend(item.spend)}`)
+        .join(" ");
+
+      const messagesPoints = dailyData
+        .map((item, index) => `${x(index)},${yMessages(item.messages)}`)
+        .join(" ");
+
+      const horizontalLines = [0, 0.25, 0.5, 0.75, 1].map(ratio => {
+        const y = padding.top + innerHeight - ratio * innerHeight;
+        const spendLabel = formatShortMoney(maxSpend * ratio);
+        const messagesLabel = Math.round(maxMessages * ratio);
+
+        return `
+          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="#eef0f4" />
+          <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="#1877f2">${spendLabel}</text>
+          <text x="${width - padding.right + 10}" y="${y + 4}" text-anchor="start" font-size="11" fill="#10b981">${messagesLabel}</text>
+        `;
+      }).join("");
+
+      const xLabels = dailyData.map((item, index) => {
+        const shouldShow = dailyData.length <= 7 || index === 0 || index === dailyData.length - 1 || index % 2 === 0;
+
+        if (!shouldShow) return "";
+
+        return `
+          <text x="${x(index)}" y="${height - 20}" text-anchor="middle" font-size="11" fill="#6b7280">
+            ${formatDateShort(item.date)}
+          </text>
+        `;
+      }).join("");
+
+      const spendDots = dailyData.map((item, index) => `
+        <circle cx="${x(index)}" cy="${ySpend(item.spend)}" r="3.5" fill="#1877f2" />
+      `).join("");
+
+      const messagesDots = dailyData.map((item, index) => `
+        <circle cx="${x(index)}" cy="${yMessages(item.messages)}" r="3.5" fill="#10b981" />
+      `).join("");
+
+      return `
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Investimento vs Leads por dia</h3>
+            <p class="chart-subtitle">${formatDateBR(chartStart)} até ${formatDateBR(chartEnd)}</p>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#1877f2"></span>
+            Investimento
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#10b981"></span>
+            Leads
+          </div>
+        </div>
+
+        <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Investimento e leads por dia">
+          ${horizontalLines}
+
+          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="#d1d5db" />
+          <line x1="${width - padding.right}" y1="${padding.top}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#d1d5db" />
+          <line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="#d1d5db" />
+
+          ${xLabels}
+
+          <polyline points="${spendPoints}" fill="none" stroke="#1877f2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <polyline points="${messagesPoints}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+          ${spendDots}
+          ${messagesDots}
+
+          <text x="${padding.left}" y="14" font-size="11" fill="#1877f2">Investimento</text>
+          <text x="${width - padding.right}" y="14" text-anchor="end" font-size="11" fill="#10b981">Leads</text>
+        </svg>
+      `;
+    }
+
+    function polarToCartesian(cx, cy, r, angleInDegrees) {
+      const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+
+      return {
+        x: cx + (r * Math.cos(angleInRadians)),
+        y: cy + (r * Math.sin(angleInRadians))
+      };
+    }
+
+    function describeDonutArc(cx, cy, outerRadius, innerRadius, startAngle, endAngle) {
+      const startOuter = polarToCartesian(cx, cy, outerRadius, endAngle);
+      const endOuter = polarToCartesian(cx, cy, outerRadius, startAngle);
+      const startInner = polarToCartesian(cx, cy, innerRadius, startAngle);
+      const endInner = polarToCartesian(cx, cy, innerRadius, endAngle);
+
+      const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+      return [
+        "M", startOuter.x, startOuter.y,
+        "A", outerRadius, outerRadius, 0, largeArcFlag, 0, endOuter.x, endOuter.y,
+        "L", startInner.x, startInner.y,
+        "A", innerRadius, innerRadius, 0, largeArcFlag, 1, endInner.x, endInner.y,
+        "Z"
+      ].join(" ");
+    }
+
+    function buildDonutChart(rows) {
+      const topAds = groupRowsByDimension(rows, "ad")
+        .filter(item => item.messages > 0)
+        .sort((a, b) => b.messages - a.messages)
+        .slice(0, 5);
+
+      if (!topAds.length) {
+        return `
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Top 5 anúncios por leads</h3>
+              <p class="chart-subtitle">Distribuição no período selecionado</p>
+            </div>
+          </div>
+          <div class="empty-chart">Não há leads no período selecionado.</div>
+        `;
+      }
+
+      const total = topAds.reduce((sum, item) => sum + item.messages, 0);
+      const cx = 120;
+      const cy = 120;
+      const outer = 95;
+      const inner = 58;
+
+      let currentAngle = 0;
+
+      const arcs = topAds.map((item, index) => {
+        const percentage = item.messages / total;
+        const angle = percentage * 360;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + angle;
+        currentAngle = endAngle;
+
+        const color = CHART_COLORS[index % CHART_COLORS.length];
+
+        if (topAds.length === 1) {
+          return `
+            <circle cx="${cx}" cy="${cy}" r="${outer}" fill="${color}" />
+            <circle cx="${cx}" cy="${cy}" r="${inner}" fill="#ffffff" />
+          `;
+        }
+
+        return `
+          <path d="${describeDonutArc(cx, cy, outer, inner, startAngle, endAngle)}" fill="${color}" />
+        `;
+      }).join("");
+
+      const legend = topAds.map((item, index) => {
+        const color = CHART_COLORS[index % CHART_COLORS.length];
+        const shortName = safeText(item.name, "Anúncio sem nome");
+
+        return `
+          <div class="donut-legend-row">
+            <span class="legend-dot" style="background:${color}"></span>
+            <span class="donut-name" title="${shortName}">${shortName}</span>
+            <span class="donut-value">${formatNumber(item.messages)}</span>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Top 5 anúncios por leads</h3>
+            <p class="chart-subtitle">Distribuição no período selecionado</p>
+          </div>
+        </div>
+
+        <div class="donut-layout">
+          <svg viewBox="0 0 240 240" width="210" height="210" role="img" aria-label="Top 5 anúncios por leads">
+            ${arcs}
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="22" font-weight="bold" fill="#111827">${formatNumber(total)}</text>
+            <text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="12" fill="#6b7280">leads</text>
+          </svg>
+
+          <div class="donut-legend">
+            ${legend}
+          </div>
+        </div>
+      `;
     }
 
     function buildDimensionButtons() {
@@ -865,6 +1497,16 @@
           </div>
         </div>
 
+        <div class="charts-grid">
+          <div class="chart-card">
+            ${buildLineChart(filteredRows, start, end)}
+          </div>
+
+          <div class="chart-card">
+            ${buildDonutChart(filteredRows)}
+          </div>
+        </div>
+
         <div class="section-header">
           <h2 class="section-title">${dimensionConfig.title}</h2>
           ${buildDimensionButtons()}
@@ -874,16 +1516,16 @@
           <table>
             <thead>
               <tr>
-                <th>Dimensão</th>
-                <th>Mensagens</th>
-                <th>Custo/mensagem</th>
-                <th>Cliques</th>
-                <th>CTR</th>
-                <th>Investimento</th>
-                <th>Impressões</th>
-                <th>Alcance</th>
-                <th>CPM</th>
-                <th>Dias</th>
+                <th>${buildSortableHeader("Dimensão", "name")}</th>
+                <th>${buildSortableHeader("Mensagens", "messages")}</th>
+                <th>${buildSortableHeader("Custo/mensagem", "cpl")}</th>
+                <th>${buildSortableHeader("Cliques", "clicks")}</th>
+                <th>${buildSortableHeader("CTR", "ctr")}</th>
+                <th>${buildSortableHeader("Investimento", "spend")}</th>
+                <th>${buildSortableHeader("Impressões", "impressions")}</th>
+                <th>${buildSortableHeader("Alcance", "reach")}</th>
+                <th>${buildSortableHeader("CPM", "cpm")}</th>
+                <th>${buildSortableHeader("Dias", "daysCount")}</th>
               </tr>
             </thead>
             <tbody>
@@ -896,6 +1538,11 @@
 
     function changeDimension(dimension) {
       currentDimension = dimension;
+      sortState = {
+        key: "spend",
+        direction: "desc"
+      };
+
       renderDashboard(currentPeriod, currentCustomStart, currentCustomEnd);
     }
 
@@ -936,7 +1583,7 @@
 
         dashboardData = await response.json();
 
-        renderDashboard("all");
+        renderDashboard("last_7d");
       } catch (error) {
         dashboard.innerHTML = `
           <div class="error">
