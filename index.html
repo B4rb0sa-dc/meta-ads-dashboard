@@ -28,7 +28,7 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 20px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .title-area h1 {
@@ -56,6 +56,52 @@
 
     .refresh-button:hover {
       background: #0f5fd0;
+    }
+
+    .filters {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr auto;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #4b5563;
+    }
+
+    select,
+    input[type="date"] {
+      height: 42px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 0 12px;
+      font-size: 14px;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    .apply-button {
+      height: 42px;
+      border: none;
+      border-radius: 10px;
+      background: #111827;
+      color: #ffffff;
+      padding: 0 16px;
+      cursor: pointer;
+      font-weight: bold;
     }
 
     .status-card {
@@ -119,7 +165,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 980px;
+      min-width: 1080px;
     }
 
     th, td {
@@ -168,10 +214,15 @@
       .header {
         flex-direction: column;
       }
+
+      .filters {
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     @media (max-width: 600px) {
-      .cards {
+      .cards,
+      .filters {
         grid-template-columns: 1fr;
       }
 
@@ -191,7 +242,7 @@
     <div class="header">
       <div class="title-area">
         <h1>Meta Ads Dashboard</h1>
-        <p>Acompanhamento dos principais indicadores de campanhas.</p>
+        <p>Acompanhamento dos principais indicadores por período.</p>
       </div>
 
       <button class="refresh-button" onclick="loadDashboard()">
@@ -205,6 +256,8 @@
   </div>
 
   <script>
+    let dashboardData = null;
+
     function toNumber(value) {
       if (value === null || value === undefined || value === "") return 0;
 
@@ -267,6 +320,14 @@
       return `${formatDecimal(value)}%`;
     }
 
+    function safeText(value, fallback = "Não informado") {
+      if (value === null || value === undefined || value === "") {
+        return fallback;
+      }
+
+      return value;
+    }
+
     function getField(object, ...keys) {
       for (const key of keys) {
         if (
@@ -317,9 +378,9 @@
       return toNumber(action.value || action.Value || 0);
     }
 
-    function getMessages(campaign) {
+    function getMessages(row) {
       const directMessages = getField(
-        campaign,
+        row,
         "messages",
         "Messages",
         "results",
@@ -332,49 +393,58 @@
         return directValue;
       }
 
-      const actions = getField(campaign, "actions", "Actions");
+      const actions = getField(row, "actions", "Actions");
 
       return getActionValue(actions);
     }
 
-    function calculateCostPerMessage(spend, messages, providedValue) {
-      const providedNumber = toNumber(providedValue);
-
-      if (providedNumber > 0) {
-        return providedNumber;
-      }
-
-      const spendNumber = toNumber(spend);
-      const messagesNumber = toNumber(messages);
-
-      if (messagesNumber <= 0) {
-        return 0;
-      }
-
-      return spendNumber / messagesNumber;
+    function getRowDate(row) {
+      return getField(row, "date_start", "Date Start", "dateStart");
     }
 
-    function safeText(value, fallback = "Não informado") {
-      if (value === null || value === undefined || value === "") {
-        return fallback;
+    function parseDate(value) {
+      if (!value) return null;
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return null;
       }
 
-      return value;
+      return date;
     }
 
-    function normalizeCampaigns(campaigns) {
-      if (!campaigns) return [];
+    function dateKey(date) {
+      if (!date) return "";
 
-      if (typeof campaigns === "string") {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDateBR(dateString) {
+      const date = parseDate(dateString);
+
+      if (!date) return "Data não informada";
+
+      return date.toLocaleDateString("pt-BR");
+    }
+
+    function normalizeRows(data) {
+      const source = data.rows || data.campaigns || [];
+
+      if (typeof source === "string") {
         try {
-          return normalizeCampaigns(JSON.parse(campaigns));
+          return normalizeRows({ rows: JSON.parse(source) });
         } catch {
           return [];
         }
       }
 
-      if (Array.isArray(campaigns)) {
-        return campaigns
+      if (Array.isArray(source)) {
+        return source
           .flatMap(item => Array.isArray(item) ? item : [item])
           .filter(Boolean);
       }
@@ -382,90 +452,349 @@
       return [];
     }
 
-    function buildCampaignRows(campaigns) {
-      if (!campaigns.length) {
+    function getAvailableDateRange(rows) {
+      const dates = rows
+        .map(row => parseDate(getRowDate(row)))
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+
+      if (!dates.length) {
+        return {
+          minDate: null,
+          maxDate: null
+        };
+      }
+
+      return {
+        minDate: dates[0],
+        maxDate: dates[dates.length - 1]
+      };
+    }
+
+    function getPeriodRange(rows, period) {
+      const { minDate, maxDate } = getAvailableDateRange(rows);
+
+      if (!minDate || !maxDate) {
+        return {
+          start: null,
+          end: null
+        };
+      }
+
+      if (period === "all") {
+        return {
+          start: minDate,
+          end: maxDate
+        };
+      }
+
+      const days = Number(period.replace("last_", "").replace("d", ""));
+
+      const start = new Date(maxDate);
+      start.setDate(start.getDate() - days + 1);
+
+      return {
+        start,
+        end: maxDate
+      };
+    }
+
+    function filterRowsByDate(rows, start, end) {
+      if (!start || !end) return rows;
+
+      const startKey = dateKey(start);
+      const endKey = dateKey(end);
+
+      return rows.filter(row => {
+        const rowDate = parseDate(getRowDate(row));
+        if (!rowDate) return false;
+
+        const rowKey = dateKey(rowDate);
+
+        return rowKey >= startKey && rowKey <= endKey;
+      });
+    }
+
+    function calculateTotals(rows) {
+      const totals = rows.reduce((acc, row) => {
+        const spend = toNumber(getField(row, "spend", "Spend"));
+        const messages = getMessages(row);
+        const clicks = toNumber(getField(row, "inline_link_clicks", "Inline Link Clicks", "link_clicks"));
+        const impressions = toNumber(getField(row, "impressions", "Impressions"));
+        const reach = toNumber(getField(row, "reach", "Reach"));
+
+        acc.spend += spend;
+        acc.messages += messages;
+        acc.clicks += clicks;
+        acc.impressions += impressions;
+        acc.reach += reach;
+
+        return acc;
+      }, {
+        spend: 0,
+        messages: 0,
+        clicks: 0,
+        impressions: 0,
+        reach: 0
+      });
+
+      totals.cpl = totals.messages > 0 ? totals.spend / totals.messages : 0;
+      totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
+      totals.cpm = totals.impressions > 0 ? (totals.spend / totals.impressions) * 1000 : 0;
+      totals.frequency = totals.reach > 0 ? totals.impressions / totals.reach : 0;
+
+      return totals;
+    }
+
+    function groupRowsByAd(rows) {
+      const groups = new Map();
+
+      rows.forEach(row => {
+        const campaignName = getField(row, "campaign_name", "Campaign Name", "Campaign");
+        const adsetName = getField(row, "adset_name", "Adset Name", "Ad Set Name", "Adset");
+        const adName = getField(row, "ad_name", "Ad Name", "Ad");
+        const adId = getField(row, "ad_id", "Ad ID");
+
+        const key = adId || `${campaignName}||${adsetName}||${adName}`;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            campaignName,
+            adsetName,
+            adName,
+            spend: 0,
+            messages: 0,
+            clicks: 0,
+            impressions: 0,
+            reach: 0,
+            days: new Set()
+          });
+        }
+
+        const item = groups.get(key);
+
+        item.spend += toNumber(getField(row, "spend", "Spend"));
+        item.messages += getMessages(row);
+        item.clicks += toNumber(getField(row, "inline_link_clicks", "Inline Link Clicks", "link_clicks"));
+        item.impressions += toNumber(getField(row, "impressions", "Impressions"));
+        item.reach += toNumber(getField(row, "reach", "Reach"));
+
+        const rowDate = getRowDate(row);
+        if (rowDate) {
+          item.days.add(dateKey(parseDate(rowDate)));
+        }
+      });
+
+      return Array.from(groups.values())
+        .map(item => ({
+          ...item,
+          cpl: item.messages > 0 ? item.spend / item.messages : 0,
+          ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
+          cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
+          frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+          daysCount: item.days.size
+        }))
+        .sort((a, b) => b.spend - a.spend);
+    }
+
+    function buildRowsTable(rows) {
+      const groupedRows = groupRowsByAd(rows);
+
+      if (!groupedRows.length) {
         return `
           <tr>
-            <td colspan="9">Nenhuma campanha encontrada.</td>
+            <td colspan="10">Nenhum dado encontrado para o período selecionado.</td>
           </tr>
         `;
       }
 
-      return campaigns.map(campaign => {
-        const campaignName = getField(
-          campaign,
-          "campaign_name",
-          "Campaign Name",
-          "Campaign"
-        );
+      return groupedRows.map(item => `
+        <tr>
+          <td>${safeText(item.campaignName, "Campanha não identificada")}</td>
+          <td>${safeText(item.adsetName, "Conjunto não identificado")}</td>
+          <td>${safeText(item.adName, "Anúncio não identificado")}</td>
+          <td>${formatNumber(item.messages)}</td>
+          <td>${formatMoney(item.cpl)}</td>
+          <td>${formatNumber(item.clicks)}</td>
+          <td>${formatPercent(item.ctr)}</td>
+          <td>${formatMoney(item.spend)}</td>
+          <td>${formatNumber(item.impressions)}</td>
+          <td>${item.daysCount}</td>
+        </tr>
+      `).join("");
+    }
 
-        const adsetName = getField(
-          campaign,
-          "adset_name",
-          "Adset Name",
-          "Ad Set Name",
-          "Adset"
-        );
+    function renderDashboard(period = "all", customStart = "", customEnd = "") {
+      const dashboard = document.getElementById("dashboard");
 
-        const adName = getField(
-          campaign,
-          "ad_name",
-          "Ad Name",
-          "Ad"
-        );
+      if (!dashboardData) {
+        dashboard.innerHTML = `<div class="loading">Carregando dados...</div>`;
+        return;
+      }
 
-        const spend = getField(
-          campaign,
-          "spend",
-          "Spend"
-        );
+      const allRows = normalizeRows(dashboardData);
+      const { minDate, maxDate } = getAvailableDateRange(allRows);
 
-        const messages = getMessages(campaign);
+      let start = null;
+      let end = null;
 
-        const costPerMessage = getField(
-          campaign,
-          "cost_per_message",
-          "Cost Per Message",
-          "Cost Per Action Type"
-        );
+      if (period === "custom" && customStart && customEnd) {
+        start = parseDate(`${customStart}T00:00:00`);
+        end = parseDate(`${customEnd}T23:59:59`);
+      } else {
+        const range = getPeriodRange(allRows, period);
+        start = range.start;
+        end = range.end;
+      }
 
-        const linkClicks = getField(
-          campaign,
-          "link_clicks",
-          "Inline Link Clicks",
-          "inline_link_clicks",
-          "Link Clicks"
-        );
+      const filteredRows = filterRowsByDate(allRows, start, end);
+      const totals = calculateTotals(filteredRows);
+      const tableRows = buildRowsTable(filteredRows);
 
-        const ctr = getField(
-          campaign,
-          "ctr_link",
-          "Unique Inline Link Click CTR",
-          "Inline Link Click CTR",
-          "unique_inline_link_click_ctr",
-          "CTR"
-        );
+      const periodLabel = start && end
+        ? `${formatDateBR(start)} até ${formatDateBR(end)}`
+        : "Período não identificado";
 
-        const impressions = getField(
-          campaign,
-          "impressions",
-          "Impressions"
-        );
+      dashboard.innerHTML = `
+        <div class="filters">
+          <div class="field">
+            <label>Período</label>
+            <select id="periodSelect" onchange="handlePeriodChange()">
+              <option value="all" ${period === "all" ? "selected" : ""}>Todo o período disponível</option>
+              <option value="last_1d" ${period === "last_1d" ? "selected" : ""}>Último dia com dados</option>
+              <option value="last_3d" ${period === "last_3d" ? "selected" : ""}>Últimos 3 dias</option>
+              <option value="last_7d" ${period === "last_7d" ? "selected" : ""}>Últimos 7 dias</option>
+              <option value="last_14d" ${period === "last_14d" ? "selected" : ""}>Últimos 14 dias</option>
+              <option value="last_30d" ${period === "last_30d" ? "selected" : ""}>Últimos 30 dias</option>
+              <option value="last_90d" ${period === "last_90d" ? "selected" : ""}>Últimos 90 dias</option>
+              <option value="custom" ${period === "custom" ? "selected" : ""}>Personalizado</option>
+            </select>
+          </div>
 
-        return `
-          <tr>
-            <td>${safeText(campaignName, "Campanha não identificada")}</td>
-            <td>${safeText(adsetName, "Conjunto não identificado")}</td>
-            <td>${safeText(adName, "Anúncio não identificado")}</td>
-            <td>${formatNumber(messages)}</td>
-            <td>${formatMoney(calculateCostPerMessage(spend, messages, costPerMessage))}</td>
-            <td>${formatNumber(linkClicks)}</td>
-            <td>${formatPercent(ctr)}</td>
-            <td>${formatMoney(spend)}</td>
-            <td>${formatNumber(impressions)}</td>
-          </tr>
-        `;
-      }).join("");
+          <div class="field">
+            <label>Data inicial</label>
+            <input id="customStart" type="date" value="${customStart}" ${period !== "custom" ? "disabled" : ""} />
+          </div>
+
+          <div class="field">
+            <label>Data final</label>
+            <input id="customEnd" type="date" value="${customEnd}" ${period !== "custom" ? "disabled" : ""} />
+          </div>
+
+          <button class="apply-button" onclick="applyFilters()">
+            Aplicar
+          </button>
+        </div>
+
+        <div class="status-card">
+          <div>
+            <strong>Última atualização:</strong>
+            ${safeText(dashboardData.updated_at || dashboardData.received_at, "Ainda não informado")}
+          </div>
+
+          <div>
+            <strong>Período exibido:</strong>
+            ${periodLabel}
+          </div>
+
+          <div class="muted">
+            ${filteredRows.length} linha(s) filtrada(s) de ${allRows.length}
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card">
+            <div class="label">Investimento total</div>
+            <div class="value">${formatMoney(totals.spend)}</div>
+            <div class="small">Soma do período selecionado</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Mensagens</div>
+            <div class="value">${formatNumber(totals.messages)}</div>
+            <div class="small">Resultados no período</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Custo por mensagem</div>
+            <div class="value">${formatMoney(totals.cpl)}</div>
+            <div class="small">Investimento dividido por mensagens</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Cliques</div>
+            <div class="value">${formatNumber(totals.clicks)}</div>
+            <div class="small">Cliques no link</div>
+          </div>
+
+          <div class="card">
+            <div class="label">CTR</div>
+            <div class="value">${formatPercent(totals.ctr)}</div>
+            <div class="small">Cliques / impressões</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Impressões</div>
+            <div class="value">${formatNumber(totals.impressions)}</div>
+            <div class="small">Quantidade de exibições</div>
+          </div>
+
+          <div class="card">
+            <div class="label">Alcance</div>
+            <div class="value">${formatNumber(totals.reach)}</div>
+            <div class="small">Soma do alcance diário</div>
+          </div>
+
+          <div class="card">
+            <div class="label">CPM</div>
+            <div class="value">${formatMoney(totals.cpm)}</div>
+            <div class="small">Custo por mil impressões</div>
+          </div>
+        </div>
+
+        <h2 class="section-title">Anúncios por período</h2>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Campanha</th>
+                <th>Conjunto</th>
+                <th>Anúncio</th>
+                <th>Mensagens</th>
+                <th>Custo/mensagem</th>
+                <th>Cliques</th>
+                <th>CTR</th>
+                <th>Investimento</th>
+                <th>Impressões</th>
+                <th>Dias</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function handlePeriodChange() {
+      const period = document.getElementById("periodSelect").value;
+
+      if (period !== "custom") {
+        renderDashboard(period);
+        return;
+      }
+
+      renderDashboard("custom");
+    }
+
+    function applyFilters() {
+      const period = document.getElementById("periodSelect").value;
+      const customStart = document.getElementById("customStart").value;
+      const customEnd = document.getElementById("customEnd").value;
+
+      renderDashboard(period, customStart, customEnd);
     }
 
     async function loadDashboard() {
@@ -484,104 +813,9 @@
           throw new Error("Não foi possível carregar os dados do webhook.");
         }
 
-        const data = await response.json();
+        dashboardData = await response.json();
 
-        const summary = data.summary || {};
-        const campaigns = normalizeCampaigns(data.campaigns);
-        const campaignRows = buildCampaignRows(campaigns);
-
-        const summaryMessages = toNumber(summary.messages);
-        const summarySpend = toNumber(summary.spend);
-        const summaryCpl = calculateCostPerMessage(
-          summarySpend,
-          summaryMessages,
-          summary.cpl
-        );
-
-        dashboard.innerHTML = `
-          <div class="status-card">
-            <div>
-              <strong>Última atualização:</strong>
-              ${safeText(data.updated_at || data.received_at, "Ainda não informado")}
-            </div>
-            <div class="muted">
-              ${campaigns.length} item(ns) na tabela
-            </div>
-          </div>
-
-          <div class="cards">
-            <div class="card">
-              <div class="label">Investimento total</div>
-              <div class="value">${formatMoney(summarySpend)}</div>
-              <div class="small">Valor investido no período</div>
-            </div>
-
-            <div class="card">
-              <div class="label">Mensagens</div>
-              <div class="value">${formatNumber(summaryMessages)}</div>
-              <div class="small">Conversas ou leads gerados</div>
-            </div>
-
-            <div class="card">
-              <div class="label">Custo por mensagem</div>
-              <div class="value">${formatMoney(summaryCpl)}</div>
-              <div class="small">Custo médio por resultado</div>
-            </div>
-
-            <div class="card">
-              <div class="label">CTR</div>
-              <div class="value">${formatPercent(summary.ctr)}</div>
-              <div class="small">Taxa de clique</div>
-            </div>
-
-            <div class="card">
-              <div class="label">Cliques</div>
-              <div class="value">${formatNumber(summary.clicks)}</div>
-              <div class="small">Cliques no link</div>
-            </div>
-
-            <div class="card">
-              <div class="label">Impressões</div>
-              <div class="value">${formatNumber(summary.impressions)}</div>
-              <div class="small">Quantidade de exibições</div>
-            </div>
-
-            <div class="card">
-              <div class="label">Frequência</div>
-              <div class="value">${formatDecimal(summary.frequency)}</div>
-              <div class="small">Média de vezes por pessoa</div>
-            </div>
-
-            <div class="card">
-              <div class="label">CPM</div>
-              <div class="value">${formatMoney(summary.cpm)}</div>
-              <div class="small">Custo por mil impressões</div>
-            </div>
-          </div>
-
-          <h2 class="section-title">Campanhas</h2>
-
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Campanha</th>
-                  <th>Conjunto</th>
-                  <th>Anúncio</th>
-                  <th>Mensagens</th>
-                  <th>Custo/mensagem</th>
-                  <th>Cliques</th>
-                  <th>CTR</th>
-                  <th>Investimento</th>
-                  <th>Impressões</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${campaignRows}
-              </tbody>
-            </table>
-          </div>
-        `;
+        renderDashboard("all");
       } catch (error) {
         dashboard.innerHTML = `
           <div class="error">
