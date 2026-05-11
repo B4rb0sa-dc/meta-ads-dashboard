@@ -229,6 +229,23 @@
       return `${formatDecimal(value)}%`;
     }
 
+    function calculateCostPerMessage(spend, messages, providedValue) {
+  const providedNumber = toNumber(providedValue);
+
+  if (providedNumber > 0) {
+    return providedNumber;
+  }
+
+  const spendNumber = toNumber(spend);
+  const messagesNumber = toNumber(messages);
+
+  if (messagesNumber <= 0) {
+    return 0;
+  }
+
+  return spendNumber / messagesNumber;
+}
+    
     function safeText(value, fallback = "Não informado") {
       if (value === null || value === undefined || value === "") {
         return fallback;
@@ -279,7 +296,7 @@
 
             <div class="card">
               <div class="label">Custo por mensagem</div>
-              <div class="value">${formatMoney(summary.cpl)}</div>
+              <div class="value">${formatMoney(calculateCostPerMessage(summary.spend, summary.messages, summary.cpl))}</div>
               <div class="small">Custo médio por resultado</div>
             </div>
 
@@ -340,7 +357,7 @@
                         <td>${safeText(campaign.adset_name, "Conjunto não identificado")}</td>
                         <td>${safeText(campaign.ad_name, "Anúncio não identificado")}</td>
                         <td>${formatNumber(campaign.messages)}</td>
-                        <td>${formatMoney(campaign.cost_per_message)}</td>
+                        <td>${formatMoney(calculateCostPerMessage(campaign.spend, campaign.messages, campaign.cost_per_message))}</td>
                         <td>${formatNumber(campaign.link_clicks)}</td>
                         <td>${formatPercent(campaign.ctr_link)}</td>
                         <td>${formatMoney(campaign.spend)}</td>
