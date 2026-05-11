@@ -193,18 +193,28 @@
   </div>
 
   <script>
-    function toNumber(value) {
-      if (value === null || value === undefined || value === "") return 0;
+   function toNumber(value) {
+  if (value === null || value === undefined || value === "") return 0;
 
-      if (typeof value === "number") return value;
+  if (typeof value === "object" && value.value !== undefined) {
+    return toNumber(value.value);
+  }
 
-      return Number(
-        String(value)
-          .replace("R$", "")
-          .replace(/\./g, "")
-          .replace(",", ".")
-          .trim()
-      ) || 0;
+  if (typeof value === "number") return value;
+
+  let text = String(value)
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .trim();
+
+  if (text.includes(",") && text.includes(".")) {
+    text = text.replace(/\./g, "").replace(",", ".");
+  } else if (text.includes(",")) {
+    text = text.replace(",", ".");
+  }
+
+  return Number(text) || 0;
+}
     }
 
     function formatMoney(value) {
@@ -244,6 +254,52 @@
   }
 
   return spendNumber / messagesNumber;
+}
+    function getField(object, ...keys) {
+  for (const key of keys) {
+    if (
+      object &&
+      object[key] !== undefined &&
+      object[key] !== null &&
+      object[key] !== ""
+    ) {
+      return object[key];
+    }
+  }
+
+  return "";
+}
+
+function getActionValue(actions) {
+  if (!actions) return 0;
+
+  if (!Array.isArray(actions)) {
+    return toNumber(actions);
+  }
+
+  const preferredAction = actions.find(action => {
+    const type = String(
+      action.action_type ||
+      action["Action Type"] ||
+      action.type ||
+      ""
+    ).toLowerCase();
+
+    return (
+      type.includes("messaging") ||
+      type.includes("message") ||
+      type.includes("lead")
+    );
+  });
+
+  const action = preferredAction || actions.find(item =>
+    item.value !== undefined ||
+    item.Value !== undefined
+  );
+
+  if (!action) return 0;
+
+  return toNumber(action.value || action.Value || 0);
 }
     
     function safeText(value, fallback = "Não informado") {
@@ -353,17 +409,47 @@
                   campaigns.length
                     ? campaigns.map(campaign => `
                       <tr>
-                        <td>${safeText(campaign.campaign_name, "Campanha não identificada")}</td>
-                        <td>${safeText(campaign.adset_name, "Conjunto não identificado")}</td>
-                        <td>${safeText(campaign.ad_name, "Anúncio não identificado")}</td>
-                        <td>${formatNumber(campaign.messages)}</td>
-                        <td>${formatMoney(calculateCostPerMessage(campaign.spend, campaign.messages, campaign.cost_per_message))}</td>
-                        <td>${formatNumber(campaign.link_clicks)}</td>
-                        <td>${formatPercent(campaign.ctr_link)}</td>
-                        <td>${formatMoney(campaign.spend)}</td>
-                        <td>${formatNumber(campaign.impressions)}</td>
-                      </tr>
-                    `).join("")
+                campaigns.map(campaign => {
+  const campaignName = getField(campaign, "campaign_name", "Campaign Name");
+  const adsetName = getField(campaign, "adset_name", "Adset Name");
+  const adName = getField(campaign, "ad_name", "Ad Name");
+
+  const spend = getField(campaign, "spend", "Spend");
+  const actions = getField(campaign, "messages", "Actions");
+  const messages = getActionValue(actions);
+
+  const linkClicks = getField(
+    campaign,
+    "link_clicks",
+    "Inline Link Clicks",
+    "inline_link_clicks"
+  );
+
+  const ctr = getField(
+    campaign,
+    "ctr_link",
+    "Unique Inline Link Click CTR",
+    "Inline Link Click CTR",
+    "unique_inline_link_click_ctr"
+  );
+
+  const impressions = getField(campaign, "impressions", "Impressions");
+  const costPerMessage = getField(campaign, "cost_per_message", "Cost Per Message");
+
+  return `
+    <tr>
+      <td>${safeText(campaignName, "Campanha não identificada")}</td>
+      <td>${safeText(adsetName, "Conjunto não identificado")}</td>
+      <td>${safeText(adName, "Anúncio não identificado")}</td>
+      <td>${formatNumber(messages)}</td>
+      <td>${formatMoney(calculateCostPerMessage(spend, messages, costPerMessage))}</td>
+      <td>${formatNumber(linkClicks)}</td>
+      <td>${formatPercent(ctr)}</td>
+      <td>${formatMoney(spend)}</td>
+      <td>${formatNumber(impressions)}</td>
+    </tr>
+  `;
+}).join("")
                     : `
                       <tr>
                         <td colspan="9">Nenhuma campanha encontrada.</td>
