@@ -1,42 +1,374 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Meta Ads Dashboard</title>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
+      margin: 0;
       font-family: Arial, sans-serif;
       background: #f5f7fb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+      color: #1f2937;
     }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .title-area h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      color: #1877F2;
+    }
+
+    .title-area p {
+      margin: 0;
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    .refresh-button {
+      border: none;
+      background: #1877F2;
+      color: white;
+      padding: 12px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 6px 18px rgba(24, 119, 242, 0.25);
+    }
+
+    .refresh-button:hover {
+      background: #0f5fd0;
+    }
+
+    .status-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      color: #4b5563;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
     .card {
       background: #ffffff;
-      padding: 40px;
+      padding: 22px;
       border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    .card .label {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .card .value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .card .small {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    .section-title {
+      margin: 32px 0 16px;
+      font-size: 22px;
+      color: #111827;
+    }
+
+    .table-wrapper {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th, td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid #eef0f4;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f9fafb;
+      color: #4b5563;
+      font-weight: bold;
+    }
+
+    td {
+      color: #1f2937;
+    }
+
+    .loading,
+    .error {
+      background: #ffffff;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
       text-align: center;
-      max-width: 600px;
     }
-    h1 {
-      color: #1877F2;
-      margin-bottom: 20px;
+
+    .error {
+      color: #b91c1c;
     }
-    p {
-      color: #555;
-      line-height: 1.6;
+
+    @media (max-width: 900px) {
+      .cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .header {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .title-area h1 {
+        font-size: 26px;
+      }
+
+      .card .value {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <h1>Meta Ads Dashboard</h1>
-    <p>Projeto configurado com sucesso.</p>
-    <p>O próximo passo será conectar o webhook do Make para receber os dados do Meta Ads.</p>
+  <div class="container">
+    <div class="header">
+      <div class="title-area">
+        <h1>Meta Ads Dashboard</h1>
+        <p>Acompanhamento dos principais indicadores de campanhas.</p>
+      </div>
+
+      <button class="refresh-button" onclick="loadDashboard()">
+        Atualizar dados
+      </button>
+    </div>
+
+    <div id="dashboard">
+      <div class="loading">Carregando dados...</div>
+    </div>
   </div>
+
+  <script>
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return 0;
+
+      if (typeof value === "number") return value;
+
+      return Number(
+        String(value)
+          .replace("R$", "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+          .trim()
+      ) || 0;
+    }
+
+    function formatMoney(value) {
+      return toNumber(value).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
+
+    function formatNumber(value) {
+      return Math.round(toNumber(value)).toLocaleString("pt-BR");
+    }
+
+    function formatDecimal(value) {
+      return toNumber(value).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatPercent(value) {
+      return `${formatDecimal(value)}%`;
+    }
+
+    function safeText(value, fallback = "Não informado") {
+      if (value === null || value === undefined || value === "") {
+        return fallback;
+      }
+
+      return value;
+    }
+
+    async function loadDashboard() {
+      const dashboard = document.getElementById("dashboard");
+
+      dashboard.innerHTML = `
+        <div class="loading">Carregando dados...</div>
+      `;
+
+      try {
+        const response = await fetch("/api/webhook", {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os dados do webhook.");
+        }
+
+        const data = await response.json();
+
+        const summary = data.summary || {};
+        const campaigns = data.campaigns || [];
+
+        dashboard.innerHTML = `
+          <div class="status-card">
+            <strong>Última atualização:</strong>
+            ${safeText(data.updated_at || data.received_at, "Ainda não informado")}
+          </div>
+
+          <div class="cards">
+            <div class="card">
+              <div class="label">Investimento total</div>
+              <div class="value">${formatMoney(summary.spend)}</div>
+              <div class="small">Valor investido no período</div>
+            </div>
+
+            <div class="card">
+              <div class="label">Mensagens</div>
+              <div class="value">${formatNumber(summary.messages)}</div>
+              <div class="small">Conversas ou leads gerados</div>
+            </div>
+
+            <div class="card">
+              <div class="label">Custo por mensagem</div>
+              <div class="value">${formatMoney(summary.cpl)}</div>
+              <div class="small">Custo médio por resultado</div>
+            </div>
+
+            <div class="card">
+              <div class="label">CTR</div>
+              <div class="value">${formatPercent(summary.ctr)}</div>
+              <div class="small">Taxa de clique</div>
+            </div>
+
+            <div class="card">
+              <div class="label">Cliques</div>
+              <div class="value">${formatNumber(summary.clicks)}</div>
+              <div class="small">Cliques no link</div>
+            </div>
+
+            <div class="card">
+              <div class="label">Impressões</div>
+              <div class="value">${formatNumber(summary.impressions)}</div>
+              <div class="small">Quantidade de exibições</div>
+            </div>
+
+            <div class="card">
+              <div class="label">Frequência</div>
+              <div class="value">${formatDecimal(summary.frequency)}</div>
+              <div class="small">Média de vezes por pessoa</div>
+            </div>
+
+            <div class="card">
+              <div class="label">CPM</div>
+              <div class="value">${formatMoney(summary.cpm)}</div>
+              <div class="small">Custo por mil impressões</div>
+            </div>
+          </div>
+
+          <h2 class="section-title">Campanhas</h2>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Campanha</th>
+                  <th>Conjunto</th>
+                  <th>Anúncio</th>
+                  <th>Mensagens</th>
+                  <th>Custo/mensagem</th>
+                  <th>Cliques</th>
+                  <th>CTR</th>
+                  <th>Investimento</th>
+                  <th>Impressões</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  campaigns.length
+                    ? campaigns.map(campaign => `
+                      <tr>
+                        <td>${safeText(campaign.campaign_name, "Campanha não identificada")}</td>
+                        <td>${safeText(campaign.adset_name, "Conjunto não identificado")}</td>
+                        <td>${safeText(campaign.ad_name, "Anúncio não identificado")}</td>
+                        <td>${formatNumber(campaign.messages)}</td>
+                        <td>${formatMoney(campaign.cost_per_message)}</td>
+                        <td>${formatNumber(campaign.link_clicks)}</td>
+                        <td>${formatPercent(campaign.ctr_link)}</td>
+                        <td>${formatMoney(campaign.spend)}</td>
+                        <td>${formatNumber(campaign.impressions)}</td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="9">Nenhuma campanha encontrada.</td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (error) {
+        dashboard.innerHTML = `
+          <div class="error">
+            <strong>Erro ao carregar o dashboard.</strong>
+            <br><br>
+            ${error.message}
+          </div>
+        `;
+      }
+    }
+
+    loadDashboard();
+  </script>
 </body>
 </html>
