@@ -14,13 +14,13 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f5f7fb;
-      color: #1f2937;
+      color: #111827;
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1240px;
       margin: 0 auto;
-      padding: 32px 20px;
+      padding: 32px 20px 56px;
     }
 
     .header {
@@ -33,8 +33,8 @@
 
     .title-area h1 {
       margin: 0 0 8px;
-      font-size: 32px;
-      color: #1877F2;
+      font-size: 34px;
+      color: #1877f2;
     }
 
     .title-area p {
@@ -45,8 +45,8 @@
 
     .refresh-button {
       border: none;
-      background: #1877F2;
-      color: white;
+      background: #1877f2;
+      color: #ffffff;
       padding: 12px 18px;
       border-radius: 10px;
       cursor: pointer;
@@ -65,6 +65,10 @@
       margin-bottom: 24px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.06);
       color: #4b5563;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
     .cards {
@@ -90,7 +94,7 @@
     .card .value {
       font-size: 28px;
       font-weight: bold;
-      color: #111827;
+      color: #020617;
     }
 
     .card .small {
@@ -101,7 +105,7 @@
 
     .section-title {
       margin: 32px 0 16px;
-      font-size: 22px;
+      font-size: 24px;
       color: #111827;
     }
 
@@ -115,7 +119,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 900px;
+      min-width: 980px;
     }
 
     th, td {
@@ -123,16 +127,20 @@
       text-align: left;
       border-bottom: 1px solid #eef0f4;
       font-size: 14px;
+      vertical-align: top;
     }
 
     th {
       background: #f9fafb;
       color: #4b5563;
       font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     td {
-      color: #1f2937;
+      color: #111827;
     }
 
     .loading,
@@ -146,6 +154,10 @@
 
     .error {
       color: #b91c1c;
+    }
+
+    .muted {
+      color: #6b7280;
     }
 
     @media (max-width: 900px) {
@@ -193,28 +205,44 @@
   </div>
 
   <script>
-   function toNumber(value) {
-  if (value === null || value === undefined || value === "") return 0;
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return 0;
 
-  if (typeof value === "object" && value.value !== undefined) {
-    return toNumber(value.value);
-  }
+      if (typeof value === "object" && value.value !== undefined) {
+        return toNumber(value.value);
+      }
 
-  if (typeof value === "number") return value;
+      if (typeof value === "object" && value.Value !== undefined) {
+        return toNumber(value.Value);
+      }
 
-  let text = String(value)
-    .replace("R$", "")
-    .replace(/\s/g, "")
-    .trim();
+      if (typeof value === "number") return value;
 
-  if (text.includes(",") && text.includes(".")) {
-    text = text.replace(/\./g, "").replace(",", ".");
-  } else if (text.includes(",")) {
-    text = text.replace(",", ".");
-  }
+      let text = String(value)
+        .replace("R$", "")
+        .replace("%", "")
+        .replace(/\s/g, "")
+        .trim();
 
-  return Number(text) || 0;
-}
+      if (!text) return 0;
+
+      const hasComma = text.includes(",");
+      const hasDot = text.includes(".");
+
+      if (hasComma && hasDot) {
+        const lastComma = text.lastIndexOf(",");
+        const lastDot = text.lastIndexOf(".");
+
+        if (lastComma > lastDot) {
+          text = text.replace(/\./g, "").replace(",", ".");
+        } else {
+          text = text.replace(/,/g, "");
+        }
+      } else if (hasComma) {
+        text = text.replace(",", ".");
+      }
+
+      return Number(text) || 0;
     }
 
     function formatMoney(value) {
@@ -239,75 +267,205 @@
       return `${formatDecimal(value)}%`;
     }
 
-    function calculateCostPerMessage(spend, messages, providedValue) {
-  const providedNumber = toNumber(providedValue);
-
-  if (providedNumber > 0) {
-    return providedNumber;
-  }
-
-  const spendNumber = toNumber(spend);
-  const messagesNumber = toNumber(messages);
-
-  if (messagesNumber <= 0) {
-    return 0;
-  }
-
-  return spendNumber / messagesNumber;
-}
     function getField(object, ...keys) {
-  for (const key of keys) {
-    if (
-      object &&
-      object[key] !== undefined &&
-      object[key] !== null &&
-      object[key] !== ""
-    ) {
-      return object[key];
+      for (const key of keys) {
+        if (
+          object &&
+          object[key] !== undefined &&
+          object[key] !== null &&
+          object[key] !== ""
+        ) {
+          return object[key];
+        }
+      }
+
+      return "";
     }
-  }
 
-  return "";
-}
+    function getActionValue(actions) {
+      if (!actions) return 0;
 
-function getActionValue(actions) {
-  if (!actions) return 0;
+      if (!Array.isArray(actions)) {
+        return toNumber(actions);
+      }
 
-  if (!Array.isArray(actions)) {
-    return toNumber(actions);
-  }
+      const preferredAction = actions.find(action => {
+        const type = String(
+          action.action_type ||
+          action["Action Type"] ||
+          action.type ||
+          ""
+        ).toLowerCase();
 
-  const preferredAction = actions.find(action => {
-    const type = String(
-      action.action_type ||
-      action["Action Type"] ||
-      action.type ||
-      ""
-    ).toLowerCase();
+        return (
+          type.includes("messaging") ||
+          type.includes("message") ||
+          type.includes("whatsapp") ||
+          type.includes("lead")
+        );
+      });
 
-    return (
-      type.includes("messaging") ||
-      type.includes("message") ||
-      type.includes("lead")
-    );
-  });
+      const fallbackAction = actions.find(action =>
+        action.value !== undefined ||
+        action.Value !== undefined
+      );
 
-  const action = preferredAction || actions.find(item =>
-    item.value !== undefined ||
-    item.Value !== undefined
-  );
+      const action = preferredAction || fallbackAction;
 
-  if (!action) return 0;
+      if (!action) return 0;
 
-  return toNumber(action.value || action.Value || 0);
-}
-    
+      return toNumber(action.value || action.Value || 0);
+    }
+
+    function getMessages(campaign) {
+      const directMessages = getField(
+        campaign,
+        "messages",
+        "Messages",
+        "results",
+        "Results"
+      );
+
+      const directValue = toNumber(directMessages);
+
+      if (directValue > 0) {
+        return directValue;
+      }
+
+      const actions = getField(campaign, "actions", "Actions");
+
+      return getActionValue(actions);
+    }
+
+    function calculateCostPerMessage(spend, messages, providedValue) {
+      const providedNumber = toNumber(providedValue);
+
+      if (providedNumber > 0) {
+        return providedNumber;
+      }
+
+      const spendNumber = toNumber(spend);
+      const messagesNumber = toNumber(messages);
+
+      if (messagesNumber <= 0) {
+        return 0;
+      }
+
+      return spendNumber / messagesNumber;
+    }
+
     function safeText(value, fallback = "Não informado") {
       if (value === null || value === undefined || value === "") {
         return fallback;
       }
 
       return value;
+    }
+
+    function normalizeCampaigns(campaigns) {
+      if (!campaigns) return [];
+
+      if (typeof campaigns === "string") {
+        try {
+          return normalizeCampaigns(JSON.parse(campaigns));
+        } catch {
+          return [];
+        }
+      }
+
+      if (Array.isArray(campaigns)) {
+        return campaigns
+          .flatMap(item => Array.isArray(item) ? item : [item])
+          .filter(Boolean);
+      }
+
+      return [];
+    }
+
+    function buildCampaignRows(campaigns) {
+      if (!campaigns.length) {
+        return `
+          <tr>
+            <td colspan="9">Nenhuma campanha encontrada.</td>
+          </tr>
+        `;
+      }
+
+      return campaigns.map(campaign => {
+        const campaignName = getField(
+          campaign,
+          "campaign_name",
+          "Campaign Name",
+          "Campaign"
+        );
+
+        const adsetName = getField(
+          campaign,
+          "adset_name",
+          "Adset Name",
+          "Ad Set Name",
+          "Adset"
+        );
+
+        const adName = getField(
+          campaign,
+          "ad_name",
+          "Ad Name",
+          "Ad"
+        );
+
+        const spend = getField(
+          campaign,
+          "spend",
+          "Spend"
+        );
+
+        const messages = getMessages(campaign);
+
+        const costPerMessage = getField(
+          campaign,
+          "cost_per_message",
+          "Cost Per Message",
+          "Cost Per Action Type"
+        );
+
+        const linkClicks = getField(
+          campaign,
+          "link_clicks",
+          "Inline Link Clicks",
+          "inline_link_clicks",
+          "Link Clicks"
+        );
+
+        const ctr = getField(
+          campaign,
+          "ctr_link",
+          "Unique Inline Link Click CTR",
+          "Inline Link Click CTR",
+          "unique_inline_link_click_ctr",
+          "CTR"
+        );
+
+        const impressions = getField(
+          campaign,
+          "impressions",
+          "Impressions"
+        );
+
+        return `
+          <tr>
+            <td>${safeText(campaignName, "Campanha não identificada")}</td>
+            <td>${safeText(adsetName, "Conjunto não identificado")}</td>
+            <td>${safeText(adName, "Anúncio não identificado")}</td>
+            <td>${formatNumber(messages)}</td>
+            <td>${formatMoney(calculateCostPerMessage(spend, messages, costPerMessage))}</td>
+            <td>${formatNumber(linkClicks)}</td>
+            <td>${formatPercent(ctr)}</td>
+            <td>${formatMoney(spend)}</td>
+            <td>${formatNumber(impressions)}</td>
+          </tr>
+        `;
+      }).join("");
     }
 
     async function loadDashboard() {
@@ -329,30 +487,44 @@ function getActionValue(actions) {
         const data = await response.json();
 
         const summary = data.summary || {};
-        const campaigns = data.campaigns || [];
+        const campaigns = normalizeCampaigns(data.campaigns);
+        const campaignRows = buildCampaignRows(campaigns);
+
+        const summaryMessages = toNumber(summary.messages);
+        const summarySpend = toNumber(summary.spend);
+        const summaryCpl = calculateCostPerMessage(
+          summarySpend,
+          summaryMessages,
+          summary.cpl
+        );
 
         dashboard.innerHTML = `
           <div class="status-card">
-            <strong>Última atualização:</strong>
-            ${safeText(data.updated_at || data.received_at, "Ainda não informado")}
+            <div>
+              <strong>Última atualização:</strong>
+              ${safeText(data.updated_at || data.received_at, "Ainda não informado")}
+            </div>
+            <div class="muted">
+              ${campaigns.length} item(ns) na tabela
+            </div>
           </div>
 
           <div class="cards">
             <div class="card">
               <div class="label">Investimento total</div>
-              <div class="value">${formatMoney(summary.spend)}</div>
+              <div class="value">${formatMoney(summarySpend)}</div>
               <div class="small">Valor investido no período</div>
             </div>
 
             <div class="card">
               <div class="label">Mensagens</div>
-              <div class="value">${formatNumber(summary.messages)}</div>
+              <div class="value">${formatNumber(summaryMessages)}</div>
               <div class="small">Conversas ou leads gerados</div>
             </div>
 
             <div class="card">
               <div class="label">Custo por mensagem</div>
-              <div class="value">${formatMoney(calculateCostPerMessage(summary.spend, summary.messages, summary.cpl))}</div>
+              <div class="value">${formatMoney(summaryCpl)}</div>
               <div class="small">Custo médio por resultado</div>
             </div>
 
@@ -405,57 +577,7 @@ function getActionValue(actions) {
                 </tr>
               </thead>
               <tbody>
-                ${
-                  campaigns.length
-                    ? campaigns.map(campaign => `
-                      <tr>
-                campaigns.map(campaign => {
-  const campaignName = getField(campaign, "campaign_name", "Campaign Name");
-  const adsetName = getField(campaign, "adset_name", "Adset Name");
-  const adName = getField(campaign, "ad_name", "Ad Name");
-
-  const spend = getField(campaign, "spend", "Spend");
-  const actions = getField(campaign, "messages", "Actions");
-  const messages = getActionValue(actions);
-
-  const linkClicks = getField(
-    campaign,
-    "link_clicks",
-    "Inline Link Clicks",
-    "inline_link_clicks"
-  );
-
-  const ctr = getField(
-    campaign,
-    "ctr_link",
-    "Unique Inline Link Click CTR",
-    "Inline Link Click CTR",
-    "unique_inline_link_click_ctr"
-  );
-
-  const impressions = getField(campaign, "impressions", "Impressions");
-  const costPerMessage = getField(campaign, "cost_per_message", "Cost Per Message");
-
-  return `
-    <tr>
-      <td>${safeText(campaignName, "Campanha não identificada")}</td>
-      <td>${safeText(adsetName, "Conjunto não identificado")}</td>
-      <td>${safeText(adName, "Anúncio não identificado")}</td>
-      <td>${formatNumber(messages)}</td>
-      <td>${formatMoney(calculateCostPerMessage(spend, messages, costPerMessage))}</td>
-      <td>${formatNumber(linkClicks)}</td>
-      <td>${formatPercent(ctr)}</td>
-      <td>${formatMoney(spend)}</td>
-      <td>${formatNumber(impressions)}</td>
-    </tr>
-  `;
-}).join("")
-                    : `
-                      <tr>
-                        <td colspan="9">Nenhuma campanha encontrada.</td>
-                      </tr>
-                    `
-                }
+                ${campaignRows}
               </tbody>
             </table>
           </div>
