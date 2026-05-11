@@ -54,10 +54,6 @@
       box-shadow: 0 6px 18px rgba(24, 119, 242, 0.25);
     }
 
-    .refresh-button:hover {
-      background: #0f5fd0;
-    }
-
     .filters {
       background: #ffffff;
       border-radius: 16px;
@@ -149,10 +145,43 @@
       color: #9ca3af;
     }
 
-    .section-title {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
       margin: 32px 0 16px;
+    }
+
+    .section-title {
+      margin: 0;
       font-size: 24px;
       color: #111827;
+    }
+
+    .dimension-buttons {
+      display: flex;
+      gap: 8px;
+      background: #ffffff;
+      padding: 6px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    .dimension-button {
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      color: #374151;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .dimension-button.active {
+      background: #1877f2;
+      color: #ffffff;
+      border-color: #1877f2;
     }
 
     .table-wrapper {
@@ -189,6 +218,17 @@
       color: #111827;
     }
 
+    .dimension-name {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .dimension-id {
+      font-size: 12px;
+      color: #6b7280;
+      word-break: break-all;
+    }
+
     .loading,
     .error {
       background: #ffffff;
@@ -211,8 +251,10 @@
         grid-template-columns: repeat(2, 1fr);
       }
 
-      .header {
+      .header,
+      .section-header {
         flex-direction: column;
+        align-items: flex-start;
       }
 
       .filters {
@@ -224,6 +266,11 @@
       .cards,
       .filters {
         grid-template-columns: 1fr;
+      }
+
+      .dimension-buttons {
+        width: 100%;
+        flex-direction: column;
       }
 
       .title-area h1 {
@@ -257,6 +304,10 @@
 
   <script>
     let dashboardData = null;
+    let currentPeriod = "all";
+    let currentCustomStart = "";
+    let currentCustomEnd = "";
+    let currentDimension = "campaign";
 
     function toNumber(value) {
       if (value === null || value === undefined || value === "") return 0;
@@ -546,22 +597,44 @@
       return totals;
     }
 
-    function groupRowsByAd(rows) {
+    function getDimensionConfig(dimension) {
+      const configs = {
+        campaign: {
+          label: "Campanhas",
+          title: "Campanhas por período",
+          nameKeys: ["campaign_name", "Campaign Name", "Campaign"],
+          idKeys: ["campaign_id", "Campaign ID"]
+        },
+        adset: {
+          label: "Conjuntos",
+          title: "Conjuntos por período",
+          nameKeys: ["adset_name", "Adset Name", "Ad Set Name", "Adset"],
+          idKeys: ["adset_id", "Adset ID", "Ad Set ID"]
+        },
+        ad: {
+          label: "Anúncios",
+          title: "Anúncios por período",
+          nameKeys: ["ad_name", "Ad Name", "Ad"],
+          idKeys: ["ad_id", "Ad ID"]
+        }
+      };
+
+      return configs[dimension] || configs.campaign;
+    }
+
+    function groupRowsByDimension(rows, dimension) {
+      const config = getDimensionConfig(dimension);
       const groups = new Map();
 
       rows.forEach(row => {
-        const campaignName = getField(row, "campaign_name", "Campaign Name", "Campaign");
-        const adsetName = getField(row, "adset_name", "Adset Name", "Ad Set Name", "Adset");
-        const adName = getField(row, "ad_name", "Ad Name", "Ad");
-        const adId = getField(row, "ad_id", "Ad ID");
-
-        const key = adId || `${campaignName}||${adsetName}||${adName}`;
+        const dimensionName = getField(row, ...config.nameKeys);
+        const dimensionId = getField(row, ...config.idKeys);
+        const key = dimensionId || dimensionName || "sem-identificacao";
 
         if (!groups.has(key)) {
           groups.set(key, {
-            campaignName,
-            adsetName,
-            adName,
+            name: dimensionName,
+            id: dimensionId,
             spend: 0,
             messages: 0,
             clicks: 0,
@@ -580,8 +653,13 @@
         item.reach += toNumber(getField(row, "reach", "Reach"));
 
         const rowDate = getRowDate(row);
+
         if (rowDate) {
-          item.days.add(dateKey(parseDate(rowDate)));
+          const parsedDate = parseDate(rowDate);
+
+          if (parsedDate) {
+            item.days.add(dateKey(parsedDate));
+          }
         }
       });
 
@@ -597,8 +675,9 @@
         .sort((a, b) => b.spend - a.spend);
     }
 
-    function buildRowsTable(rows) {
-      const groupedRows = groupRowsByAd(rows);
+    function buildDimensionTable(rows, dimension) {
+      const groupedRows = groupRowsByDimension(rows, dimension);
+      const config = getDimensionConfig(dimension);
 
       if (!groupedRows.length) {
         return `
@@ -610,22 +689,56 @@
 
       return groupedRows.map(item => `
         <tr>
-          <td>${safeText(item.campaignName, "Campanha não identificada")}</td>
-          <td>${safeText(item.adsetName, "Conjunto não identificado")}</td>
-          <td>${safeText(item.adName, "Anúncio não identificado")}</td>
+          <td>
+            <div class="dimension-name">${safeText(item.name, `${config.label} sem nome`)}</div>
+            <div class="dimension-id">ID: ${safeText(item.id, "não informado")}</div>
+          </td>
           <td>${formatNumber(item.messages)}</td>
           <td>${formatMoney(item.cpl)}</td>
           <td>${formatNumber(item.clicks)}</td>
           <td>${formatPercent(item.ctr)}</td>
           <td>${formatMoney(item.spend)}</td>
           <td>${formatNumber(item.impressions)}</td>
+          <td>${formatNumber(item.reach)}</td>
+          <td>${formatMoney(item.cpm)}</td>
           <td>${item.daysCount}</td>
         </tr>
       `).join("");
     }
 
-    function renderDashboard(period = "all", customStart = "", customEnd = "") {
+    function buildDimensionButtons() {
+      return `
+        <div class="dimension-buttons">
+          <button
+            class="dimension-button ${currentDimension === "campaign" ? "active" : ""}"
+            onclick="changeDimension('campaign')"
+          >
+            Campanhas
+          </button>
+
+          <button
+            class="dimension-button ${currentDimension === "adset" ? "active" : ""}"
+            onclick="changeDimension('adset')"
+          >
+            Conjuntos
+          </button>
+
+          <button
+            class="dimension-button ${currentDimension === "ad" ? "active" : ""}"
+            onclick="changeDimension('ad')"
+          >
+            Anúncios
+          </button>
+        </div>
+      `;
+    }
+
+    function renderDashboard(period = currentPeriod, customStart = currentCustomStart, customEnd = currentCustomEnd) {
       const dashboard = document.getElementById("dashboard");
+
+      currentPeriod = period;
+      currentCustomStart = customStart;
+      currentCustomEnd = customEnd;
 
       if (!dashboardData) {
         dashboard.innerHTML = `<div class="loading">Carregando dados...</div>`;
@@ -633,7 +746,6 @@
       }
 
       const allRows = normalizeRows(dashboardData);
-      const { minDate, maxDate } = getAvailableDateRange(allRows);
 
       let start = null;
       let end = null;
@@ -649,7 +761,8 @@
 
       const filteredRows = filterRowsByDate(allRows, start, end);
       const totals = calculateTotals(filteredRows);
-      const tableRows = buildRowsTable(filteredRows);
+      const dimensionConfig = getDimensionConfig(currentDimension);
+      const tableRows = buildDimensionTable(filteredRows, currentDimension);
 
       const periodLabel = start && end
         ? `${formatDateBR(start)} até ${formatDateBR(end)}`
@@ -752,21 +865,24 @@
           </div>
         </div>
 
-        <h2 class="section-title">Anúncios por período</h2>
+        <div class="section-header">
+          <h2 class="section-title">${dimensionConfig.title}</h2>
+          ${buildDimensionButtons()}
+        </div>
 
         <div class="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>Campanha</th>
-                <th>Conjunto</th>
-                <th>Anúncio</th>
+                <th>Dimensão</th>
                 <th>Mensagens</th>
                 <th>Custo/mensagem</th>
                 <th>Cliques</th>
                 <th>CTR</th>
                 <th>Investimento</th>
                 <th>Impressões</th>
+                <th>Alcance</th>
+                <th>CPM</th>
                 <th>Dias</th>
               </tr>
             </thead>
@@ -776,6 +892,11 @@
           </table>
         </div>
       `;
+    }
+
+    function changeDimension(dimension) {
+      currentDimension = dimension;
+      renderDashboard(currentPeriod, currentCustomStart, currentCustomEnd);
     }
 
     function handlePeriodChange() {
