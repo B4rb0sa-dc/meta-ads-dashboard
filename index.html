@@ -547,6 +547,7 @@
     let currentCustomStart = "";
     let currentCustomEnd = "";
     let currentDimension = "campaign";
+
     let sortState = {
       key: "spend",
       direction: "desc"
@@ -706,51 +707,20 @@
     }
 
     function getRowDate(row) {
-      return getField(row, "date_start", "Date Start", "dateStart");
-    }
-
-    function getDateKeyFromValue(value) {
-      if (!value) return "";
-
-      const match = String(value).match(/\d{4}-\d{2}-\d{2}/);
-
-      if (match) {
-        return match[0];
-      }
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) {
-        return "";
-      }
-
-      return dateKey(date);
-    }
-
-    function parseDate(value) {
-      if (!value) return null;
-
-      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        return new Date(`${value}T00:00:00`);
-      }
-
-      const match = String(value).match(/\d{4}-\d{2}-\d{2}/);
-
-      if (match) {
-        return new Date(`${match[0]}T00:00:00`);
-      }
-
-      const date = new Date(value);
-
-      if (Number.isNaN(date.getTime())) {
-        return null;
-      }
-
-      return date;
+      return getField(
+        row,
+        "date_start",
+        "Date Start",
+        "dateStart",
+        "date",
+        "Date"
+      );
     }
 
     function dateKey(date) {
-      if (!date) return "";
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return "";
+      }
 
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -759,23 +729,64 @@
       return `${year}-${month}-${day}`;
     }
 
+    function getDateKeyFromValue(value) {
+      if (!value) return "";
+
+      if (value instanceof Date) {
+        return dateKey(value);
+      }
+
+      const text = String(value).trim();
+
+      const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+
+      if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+      }
+
+      const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+
+      if (brMatch) {
+        return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+      }
+
+      const parsedDate = new Date(text);
+
+      if (Number.isNaN(parsedDate.getTime())) {
+        return "";
+      }
+
+      return dateKey(parsedDate);
+    }
+
+    function parseDate(value) {
+      const key = getDateKeyFromValue(value);
+
+      if (!key) return null;
+
+      const [year, month, day] = key.split("-").map(Number);
+
+      return new Date(year, month - 1, day);
+    }
+
     function formatDateBR(value) {
-      const date = parseDate(value);
+      const key = getDateKeyFromValue(value);
 
-      if (!date) return "Data não informada";
+      if (!key) return "Data não informada";
 
-      return date.toLocaleDateString("pt-BR");
+      const [year, month, day] = key.split("-");
+
+      return `${day}/${month}/${year}`;
     }
 
     function formatDateShort(value) {
-      const date = parseDate(value);
+      const key = getDateKeyFromValue(value);
 
-      if (!date) return "";
+      if (!key) return "";
 
-      return date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit"
-      });
+      const [, month, day] = key.split("-");
+
+      return `${day}/${month}`;
     }
 
     function normalizeRows(data) {
@@ -835,6 +846,13 @@
       }
 
       const days = Number(period.replace("last_", "").replace("d", ""));
+
+      if (!days || Number.isNaN(days)) {
+        return {
+          start: minDate,
+          end: maxDate
+        };
+      }
 
       const start = new Date(maxDate);
       start.setDate(start.getDate() - days + 1);
@@ -1383,8 +1401,8 @@
       let end = null;
 
       if (period === "custom" && customStart && customEnd) {
-        start = parseDate(`${customStart}T00:00:00`);
-        end = parseDate(`${customEnd}T23:59:59`);
+        start = parseDate(customStart);
+        end = parseDate(customEnd);
       } else {
         const range = getPeriodRange(allRows, period);
         start = range.start;
@@ -1538,6 +1556,7 @@
 
     function changeDimension(dimension) {
       currentDimension = dimension;
+
       sortState = {
         key: "spend",
         direction: "desc"
@@ -1546,15 +1565,33 @@
       renderDashboard(currentPeriod, currentCustomStart, currentCustomEnd);
     }
 
+    function getDefaultCustomRange() {
+      const allRows = normalizeRows(dashboardData || {});
+      const range = getPeriodRange(allRows, "last_7d");
+
+      return {
+        start: range.start ? dateKey(range.start) : "",
+        end: range.end ? dateKey(range.end) : ""
+      };
+    }
+
     function handlePeriodChange() {
       const period = document.getElementById("periodSelect").value;
 
       if (period !== "custom") {
-        renderDashboard(period);
+        renderDashboard(period, "", "");
         return;
       }
 
-      renderDashboard("custom");
+      const customStartInput = document.getElementById("customStart");
+      const customEndInput = document.getElementById("customEnd");
+
+      const defaultRange = getDefaultCustomRange();
+
+      const start = customStartInput.value || currentCustomStart || defaultRange.start;
+      const end = customEndInput.value || currentCustomEnd || defaultRange.end;
+
+      renderDashboard("custom", start, end);
     }
 
     function applyFilters() {
@@ -1583,7 +1620,7 @@
 
         dashboardData = await response.json();
 
-        renderDashboard("last_7d");
+        renderDashboard("last_7d", "", "");
       } catch (error) {
         dashboard.innerHTML = `
           <div class="error">
