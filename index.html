@@ -299,7 +299,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1120px;
+      min-width: 1280px;
     }
 
     th, td {
@@ -352,6 +352,49 @@
       font-size: 12px;
       color: #6b7280;
       word-break: break-all;
+    }
+
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .status-active {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-paused {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-issue {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-archived {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .status-multiple {
+      background: #e0f2fe;
+      color: #075985;
+    }
+
+    .status-unknown {
+      background: #f3f4f6;
+      color: #6b7280;
     }
 
     .loading,
@@ -809,6 +852,150 @@
       return [];
     }
 
+    function normalizeAdStatuses(data) {
+      const source = data.ad_statuses || data.adStatuses || data.ad_status || [];
+
+      if (typeof source === "string") {
+        try {
+          return normalizeAdStatuses({ ad_statuses: JSON.parse(source) });
+        } catch {
+          return [];
+        }
+      }
+
+      if (Array.isArray(source)) {
+        return source
+          .flatMap(item => Array.isArray(item) ? item : [item])
+          .filter(Boolean);
+      }
+
+      if (source && typeof source === "object") {
+        const nested = source.data || source.Data || source.ads || source.Ads;
+
+        if (Array.isArray(nested)) {
+          return nested
+            .flatMap(item => Array.isArray(item) ? item : [item])
+            .filter(Boolean);
+        }
+      }
+
+      return [];
+    }
+
+    function getAdStatusMap() {
+      const map = new Map();
+      const statuses = normalizeAdStatuses(dashboardData || {});
+
+      statuses.forEach(item => {
+        const id = getField(item, "id", "ad_id", "Ad ID", "adId");
+
+        if (!id) return;
+
+        map.set(String(id), item);
+      });
+
+      return map;
+    }
+
+    function getRawStatus(statusItem) {
+      if (!statusItem) return "";
+
+      return getField(
+        statusItem,
+        "effective_status",
+        "Effective Status",
+        "effectiveStatus",
+        "configured_status",
+        "Configured Status",
+        "configuredStatus",
+        "status",
+        "Status"
+      );
+    }
+
+    function translateStatus(status) {
+      const value = String(status || "").toUpperCase();
+
+      const labels = {
+        ACTIVE: "Ativo",
+        PAUSED: "Pausado",
+        CAMPAIGN_PAUSED: "Campanha pausada",
+        ADSET_PAUSED: "Conjunto pausado",
+        ARCHIVED: "Arquivado",
+        DELETED: "Excluído",
+        DISAPPROVED: "Reprovado",
+        PENDING_REVIEW: "Em análise",
+        PREAPPROVED: "Pré-aprovado",
+        IN_PROCESS: "Processando",
+        WITH_ISSUES: "Com problema",
+        MULTIPLE: "Múltiplos",
+        UNKNOWN: "Não informado"
+      };
+
+      return labels[value] || value || "Não informado";
+    }
+
+    function getStatusClass(status) {
+      const value = String(status || "").toUpperCase();
+
+      if (value === "ACTIVE") return "status-active";
+
+      if (
+        value === "PAUSED" ||
+        value === "CAMPAIGN_PAUSED" ||
+        value === "ADSET_PAUSED"
+      ) {
+        return "status-paused";
+      }
+
+      if (
+        value === "DISAPPROVED" ||
+        value === "PENDING_REVIEW" ||
+        value === "PREAPPROVED" ||
+        value === "IN_PROCESS" ||
+        value === "WITH_ISSUES"
+      ) {
+        return "status-issue";
+      }
+
+      if (
+        value === "ARCHIVED" ||
+        value === "DELETED"
+      ) {
+        return "status-archived";
+      }
+
+      if (value === "MULTIPLE") return "status-multiple";
+
+      return "status-unknown";
+    }
+
+    function buildStatusBadge(status) {
+      const rawStatus = status || "UNKNOWN";
+      const label = translateStatus(rawStatus);
+      const className = getStatusClass(rawStatus);
+
+      return `<span class="status-badge ${className}">${label}</span>`;
+    }
+
+    function getStatusFromRow(row, adStatusMap) {
+      const directStatus = getRawStatus(row);
+
+      if (directStatus) {
+        return directStatus;
+      }
+
+      const adId = getField(row, "ad_id", "Ad ID", "adId");
+
+      if (!adId) {
+        return "";
+      }
+
+      const statusItem = adStatusMap.get(String(adId));
+
+      return getRawStatus(statusItem);
+    }
+
     function getAvailableDateRange(rows) {
       const keys = rows
         .map(row => getDateKeyFromValue(getRowDate(row)))
@@ -937,6 +1124,7 @@
     function groupRowsByDimension(rows, dimension) {
       const config = getDimensionConfig(dimension);
       const groups = new Map();
+      const adStatusMap = getAdStatusMap();
 
       rows.forEach(row => {
         const dimensionName = getField(row, ...config.nameKeys);
@@ -952,7 +1140,8 @@
             clicks: 0,
             impressions: 0,
             reach: 0,
-            days: new Set()
+            days: new Set(),
+            statuses: new Set()
           });
         }
 
@@ -969,16 +1158,38 @@
         if (rowKey) {
           item.days.add(rowKey);
         }
+
+        const rawStatus = getStatusFromRow(row, adStatusMap);
+
+        if (rawStatus) {
+          item.statuses.add(String(rawStatus).toUpperCase());
+        }
       });
 
-      return Array.from(groups.values()).map(item => ({
-        ...item,
-        cpl: item.messages > 0 ? item.spend / item.messages : 0,
-        ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
-        cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
-        frequency: item.reach > 0 ? item.impressions / item.reach : 0,
-        daysCount: item.days.size
-      }));
+      return Array.from(groups.values()).map(item => {
+        const statuses = Array.from(item.statuses).filter(Boolean);
+
+        let resolvedStatus = "UNKNOWN";
+
+        if (statuses.length === 1) {
+          resolvedStatus = statuses[0];
+        }
+
+        if (statuses.length > 1) {
+          resolvedStatus = "MULTIPLE";
+        }
+
+        return {
+          ...item,
+          status: resolvedStatus,
+          statusLabel: translateStatus(resolvedStatus),
+          cpl: item.messages > 0 ? item.spend / item.messages : 0,
+          ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
+          cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
+          frequency: item.reach > 0 ? item.impressions / item.reach : 0,
+          daysCount: item.days.size
+        };
+      });
     }
 
     function sortDimensionRows(rows) {
@@ -988,7 +1199,7 @@
         let valueA = a[key];
         let valueB = b[key];
 
-        if (key === "name") {
+        if (key === "name" || key === "statusLabel") {
           valueA = String(valueA || "").toLowerCase();
           valueB = String(valueB || "").toLowerCase();
 
@@ -1009,7 +1220,7 @@
         sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
       } else {
         sortState.key = key;
-        sortState.direction = key === "name" ? "asc" : "desc";
+        sortState.direction = key === "name" || key === "statusLabel" ? "asc" : "desc";
       }
 
       renderDashboard(currentPeriod, currentCustomStart, currentCustomEnd);
@@ -1037,7 +1248,7 @@
       if (!groupedRows.length) {
         return `
           <tr>
-            <td colspan="10">Nenhum dado encontrado para o período selecionado.</td>
+            <td colspan="11">Nenhum dado encontrado para o período selecionado.</td>
           </tr>
         `;
       }
@@ -1048,6 +1259,7 @@
             <div class="dimension-name">${safeText(item.name, `${config.label} sem nome`)}</div>
             <div class="dimension-id">ID: ${safeText(item.id, "não informado")}</div>
           </td>
+          <td data-label="Status">${buildStatusBadge(item.status)}</td>
           <td data-label="Mensagens">${formatNumber(item.messages)}</td>
           <td data-label="Custo/mensagem">${formatMoney(item.cpl)}</td>
           <td data-label="Cliques">${formatNumber(item.clicks)}</td>
@@ -1535,6 +1747,7 @@
             <thead>
               <tr>
                 <th>${buildSortableHeader("Dimensão", "name")}</th>
+                <th>${buildSortableHeader("Status", "statusLabel")}</th>
                 <th>${buildSortableHeader("Mensagens", "messages")}</th>
                 <th>${buildSortableHeader("Custo/mensagem", "cpl")}</th>
                 <th>${buildSortableHeader("Cliques", "clicks")}</th>
