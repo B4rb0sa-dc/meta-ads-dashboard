@@ -299,7 +299,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1280px;
+      min-width: 1220px;
     }
 
     th, td {
@@ -363,7 +363,6 @@
       border-radius: 999px;
       font-size: 12px;
       font-weight: bold;
-      line-height: 1;
       white-space: nowrap;
     }
 
@@ -375,6 +374,11 @@
     .status-inactive {
       background: #fee2e2;
       color: #991b1b;
+    }
+
+    .status-missing {
+      background: #f3f4f6;
+      color: #6b7280;
     }
 
     .loading,
@@ -681,7 +685,14 @@
         return toNumber(actions);
       }
 
-      const preferredAction = actions.find(action => {
+      const targetActionTypes = [
+        "onsite_conversion.messaging_conversation_started_7d",
+        "onsite_conversion.messaging_conversation_started",
+        "messaging_conversation_started_7d",
+        "messaging_conversation_started"
+      ];
+
+      return actions.reduce((total, action) => {
         const type = String(
           action.action_type ||
           action["Action Type"] ||
@@ -689,27 +700,21 @@
           ""
         ).toLowerCase();
 
-        return (
-          type.includes("messaging") ||
-          type.includes("message") ||
-          type.includes("whatsapp") ||
-          type.includes("lead")
-        );
-      });
+        if (!targetActionTypes.includes(type)) {
+          return total;
+        }
 
-      const fallbackAction = actions.find(action =>
-        action.value !== undefined ||
-        action.Value !== undefined
-      );
-
-      const action = preferredAction || fallbackAction;
-
-      if (!action) return 0;
-
-      return toNumber(action.value || action.Value || 0);
+        return total + toNumber(action.value || action.Value || 0);
+      }, 0);
     }
 
     function getMessages(row) {
+      const actions = getField(row, "actions", "Actions");
+
+      if (actions) {
+        return getActionValue(actions);
+      }
+
       const directMessages = getField(
         row,
         "messages",
@@ -718,15 +723,7 @@
         "Results"
       );
 
-      const directValue = toNumber(directMessages);
-
-      if (directValue > 0) {
-        return directValue;
-      }
-
-      const actions = getField(row, "actions", "Actions");
-
-      return getActionValue(actions);
+      return toNumber(directMessages);
     }
 
     function getRowDate(row) {
@@ -832,108 +829,72 @@
       return [];
     }
 
-    function flattenStatusSource(source) {
-      if (!source) return [];
 
-      if (typeof source === "string") {
-        try {
-          return flattenStatusSource(JSON.parse(source));
-        } catch {
-          return [];
-        }
-      }
 
-      if (Array.isArray(source)) {
-        return source
-          .flatMap(item => Array.isArray(item) ? item : [item])
-          .filter(Boolean);
-      }
-
-      if (source && typeof source === "object") {
-        const nested = source.data || source.Data || source.items || source.Items;
-
-        if (nested) {
-          return flattenStatusSource(nested);
-        }
-      }
-
-      return [];
-    }
-
-    function normalizeEntityStatuses(data, dimension) {
-      const keysByDimension = {
-        campaign: [
-          "campaign_statuses",
-          "campaignStatuses",
-          "campaign_status",
-          "campaignStatus"
-        ],
-        adset: [
-          "adset_statuses",
-          "adsetStatuses",
-          "ad_set_statuses",
-          "adSetStatuses",
-          "adset_status",
-          "adsetStatus"
-        ],
-        ad: [
-          "ad_statuses",
-          "adStatuses",
-          "ad_status",
-          "adStatus"
-        ]
-      };
-
-      const keys = keysByDimension[dimension] || keysByDimension.ad;
-
+    function normalizeStatusRows(data, keys) {
       for (const key of keys) {
-        const source = data && data[key];
-        const items = flattenStatusSource(source);
+        const source = data[key];
 
-        if (items.length) {
-          return items;
+        if (!source) continue;
+
+        if (typeof source === "string") {
+          try {
+            return normalizeStatusRows({ [key]: JSON.parse(source) }, [key]);
+          } catch {
+            return [];
+          }
+        }
+
+        if (Array.isArray(source)) {
+          return source
+            .flatMap(item => Array.isArray(item) ? item : [item])
+            .filter(Boolean);
         }
       }
 
       return [];
     }
 
-    function normalizeAdStatuses(data) {
-      return normalizeEntityStatuses(data, "ad");
+    function getStatusId(item, ...keys) {
+      return String(getField(item, ...keys) || "").trim();
     }
 
-    function getEntityId(item, dimension) {
-      if (dimension === "campaign") {
-        return getField(item, "campaign_id", "Campaign ID", "campaignId", "id", "ID");
-      }
-
-      if (dimension === "adset") {
-        return getField(item, "adset_id", "Adset ID", "Ad Set ID", "adsetId", "adSetId", "id", "ID");
-      }
-
-      return getField(item, "ad_id", "Ad ID", "adId", "id", "ID");
-    }
-
-    function getStatusMap(dimension) {
+    function buildStatusMap(items, ...idKeys) {
       const map = new Map();
-      const statuses = normalizeEntityStatuses(dashboardData || {}, dimension);
 
-      statuses.forEach(item => {
-        const id = getEntityId(item, dimension);
+      items.forEach(item => {
+        const id = getStatusId(item, ...idKeys);
 
         if (!id) return;
 
-        map.set(String(id), item);
+        map.set(id, item);
       });
 
       return map;
     }
 
-    function getStatusMaps() {
+    function getStatusSources() {
+      const data = dashboardData || {};
+
+      const campaignStatuses = normalizeStatusRows(data, [
+        "campaign_statuses",
+        "campaignStatuses"
+      ]);
+
+      const adsetStatuses = normalizeStatusRows(data, [
+        "adset_statuses",
+        "adsetStatuses"
+      ]);
+
+      const adStatuses = normalizeStatusRows(data, [
+        "ad_statuses",
+        "adStatuses"
+      ]);
+
       return {
-        campaign: getStatusMap("campaign"),
-        adset: getStatusMap("adset"),
-        ad: getStatusMap("ad")
+        campaignMap: buildStatusMap(campaignStatuses, "id", "campaign_id", "Campaign ID"),
+        adsetMap: buildStatusMap(adsetStatuses, "id", "adset_id", "Adset ID", "Ad Set ID"),
+        adMap: buildStatusMap(adStatuses, "id", "ad_id", "Ad ID")
       };
     }
 
@@ -944,80 +905,87 @@
         statusItem,
         "effective_status",
         "Effective Status",
-        "effectiveStatus",
         "configured_status",
         "Configured Status",
-        "configuredStatus",
         "status",
         "Status"
       );
     }
 
-    function isMetaStatusActive(status) {
-      const value = String(status || "").toUpperCase();
+    function normalizeMetaStatus(status) {
+      return String(status || "").trim().toUpperCase();
+    }
+
+    function isActiveStatus(status) {
+      const value = normalizeMetaStatus(status);
 
       return value === "ACTIVE" || value === "ENABLED";
     }
 
-    function resolveBinaryStatus(statuses) {
-      const normalized = Array.from(statuses || [])
-        .map(status => String(status || "").toUpperCase())
+    function resolveStatusFromValues(statusValues) {
+      const cleanStatuses = statusValues
+        .map(normalizeMetaStatus)
         .filter(Boolean);
 
-      if (normalized.some(isMetaStatusActive)) {
+      if (!cleanStatuses.length) {
+        return "NO_STATUS";
+      }
+
+      if (cleanStatuses.some(isActiveStatus)) {
         return "ACTIVE";
       }
 
       return "INACTIVE";
     }
 
-    function translateStatus(status) {
-      return isMetaStatusActive(status) ? "Ativo" : "Inativo";
+    function translateDisplayStatus(status) {
+      const value = normalizeMetaStatus(status);
+
+      if (value === "ACTIVE") return "Ativo";
+      if (value === "INACTIVE") return "Inativo";
+
+      return "Sem status";
     }
 
-    function getStatusClass(status) {
-      return isMetaStatusActive(status) ? "status-active" : "status-inactive";
+    function getDisplayStatusClass(status) {
+      const value = normalizeMetaStatus(status);
+
+      if (value === "ACTIVE") return "status-active";
+      if (value === "INACTIVE") return "status-inactive";
+
+      return "status-missing";
     }
 
     function buildStatusBadge(status) {
-      const rawStatus = status || "INACTIVE";
-      const label = translateStatus(rawStatus);
-      const className = getStatusClass(rawStatus);
+      const label = translateDisplayStatus(status);
+      const className = getDisplayStatusClass(status);
 
       return `<span class="status-badge ${className}">${label}</span>`;
     }
 
-    function getStatusIdFromRow(row, dimension) {
-      if (dimension === "campaign") {
-        return getField(row, "campaign_id", "Campaign ID", "campaignId");
+    function getObjectStatusForRow(row, dimension, statusSources) {
+      const campaignId = String(getField(row, "campaign_id", "Campaign ID") || "").trim();
+      const adsetId = String(getField(row, "adset_id", "Adset ID", "Ad Set ID") || "").trim();
+      const adId = String(getField(row, "ad_id", "Ad ID") || "").trim();
+
+      if (dimension === "campaign" && campaignId) {
+        const campaignStatus = getRawStatus(statusSources.campaignMap.get(campaignId));
+        if (campaignStatus) return campaignStatus;
       }
 
-      if (dimension === "adset") {
-        return getField(row, "adset_id", "Adset ID", "Ad Set ID", "adsetId", "adSetId");
+      if (dimension === "adset" && adsetId) {
+        const adsetStatus = getRawStatus(statusSources.adsetMap.get(adsetId));
+        if (adsetStatus) return adsetStatus;
       }
 
-      return getField(row, "ad_id", "Ad ID", "adId");
-    }
-
-    function getStatusFromRow(row, dimension, statusMaps) {
-      const statusMap = statusMaps && statusMaps[dimension];
-      const id = getStatusIdFromRow(row, dimension);
-
-      if (statusMap && id) {
-        const statusItem = statusMap.get(String(id));
-        const mappedStatus = getRawStatus(statusItem);
-
-        if (mappedStatus) {
-          return mappedStatus;
-        }
+      if (dimension === "ad" && adId) {
+        const adStatus = getRawStatus(statusSources.adMap.get(adId));
+        if (adStatus) return adStatus;
       }
 
-      if (dimension === "ad") {
-        const directStatus = getRawStatus(row);
-
-        if (directStatus) {
-          return directStatus;
-        }
+      if (adId) {
+        const adStatus = getRawStatus(statusSources.adMap.get(adId));
+        if (adStatus) return adStatus;
       }
 
       return "";
@@ -1151,7 +1119,7 @@
     function groupRowsByDimension(rows, dimension) {
       const config = getDimensionConfig(dimension);
       const groups = new Map();
-      const statusMaps = getStatusMaps();
+      const statusSources = getStatusSources();
 
       rows.forEach(row => {
         const dimensionName = getField(row, ...config.nameKeys);
@@ -1168,7 +1136,7 @@
             impressions: 0,
             reach: 0,
             days: new Set(),
-            statuses: new Set()
+            statuses: []
           });
         }
 
@@ -1186,28 +1154,20 @@
           item.days.add(rowKey);
         }
 
-        let rawStatus = getStatusFromRow(row, dimension, statusMaps);
+        const rowStatus = getObjectStatusForRow(row, dimension, statusSources);
 
-        if (!rawStatus && dimension === "campaign") {
-          rawStatus = getStatusFromRow(row, "ad", statusMaps) || getStatusFromRow(row, "adset", statusMaps);
-        }
-
-        if (!rawStatus && dimension === "adset") {
-          rawStatus = getStatusFromRow(row, "ad", statusMaps);
-        }
-
-        if (rawStatus) {
-          item.statuses.add(String(rawStatus).toUpperCase());
+        if (rowStatus) {
+          item.statuses.push(rowStatus);
         }
       });
 
       return Array.from(groups.values()).map(item => {
-        const resolvedStatus = resolveBinaryStatus(item.statuses);
+        const status = resolveStatusFromValues(item.statuses);
 
         return {
           ...item,
-          status: resolvedStatus,
-          statusLabel: translateStatus(resolvedStatus),
+          status,
+          statusLabel: translateDisplayStatus(status),
           cpl: item.messages > 0 ? item.spend / item.messages : 0,
           ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
           cpm: item.impressions > 0 ? (item.spend / item.impressions) * 1000 : 0,
